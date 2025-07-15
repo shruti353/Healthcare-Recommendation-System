@@ -4,4 +4,4 @@ numpy
 pymupdf
 plotly
 scikit-learn
-openai  # Only include this if you're using GPT chatbot
+openai  
