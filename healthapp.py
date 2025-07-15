@@ -1,0 +1,140 @@
+# mega_health_app.py
+import streamlit as st
+import pandas as pd
+import numpy as np
+import fitz  # pymupdf
+from io import BytesIO
+from sklearn.ensemble import RandomForestClassifier
+import plotly.express as px
+
+# --------------------- PDF to Text ---------------------
+def extract_text_from_pdf(file):
+    text = ""
+    with fitz.open(stream=file.read(), filetype="pdf") as doc:
+        for page in doc:
+            text += page.get_text()
+    return text
+
+# --------------------- Excel/CSV Loader ---------------------
+def load_health_data(file):
+    if file.name.endswith(".csv"):
+        df = pd.read_csv(file)
+    else:
+        df = pd.read_excel(file)
+    df.fillna(0, inplace=True)
+    return df
+
+# --------------------- Health Recommendation Engine ---------------------
+def generate_recommendations(data):
+    recs = []
+
+    if isinstance(data, str):
+        text = data.lower()
+        if "fatigue" in text:
+            recs.append("Check for iron deficiency.")
+        if "headache" in text:
+            recs.append("Stay hydrated and get adequate sleep.")
+        if "chest pain" in text:
+            recs.append("Seek immediate medical attention.")
+        if "stress" in text:
+            recs.append("Try yoga and mindfulness meditation.")
+        if not recs:
+            recs.append("No direct symptoms found. Stay proactive.")
+    else:
+        if "BMI" in data.columns and data['BMI'].iloc[0] > 25:
+            recs.append("You're overweight. Consider a fitness plan.")
+        if "Blood Pressure" in data.columns and data['Blood Pressure'].iloc[0] > 130:
+            recs.append("Control salt intake and stress.")
+        if "Glucose" in data.columns and data['Glucose'].iloc[0] > 140:
+            recs.append("Monitor sugar and consult for diabetes.")
+        if "Cholesterol" in data.columns and data['Cholesterol'].iloc[0] > 200:
+            recs.append("Avoid fried food and check lipids.")
+        if not recs:
+            recs.append("Healthy vitals detected. Keep it up!")
+    return recs
+
+# --------------------- Risk Prediction ---------------------
+def predict_risks(df):
+    risks = {}
+    required = {"Age", "BMI", "Blood Pressure", "Glucose", "Cholesterol"}
+    if not required.issubset(df.columns):
+        return risks
+
+    X = df[["Age", "BMI", "Blood Pressure", "Glucose", "Cholesterol"]].values
+    y = np.array([1 if x[2] > 140 or x[3] > 150 else 0 for x in X])
+
+    model = RandomForestClassifier()
+    model.fit(X, y)
+    pred = model.predict(X)
+    prob = model.predict_proba(X)
+
+    risks["Risk Level"] = "High" if pred[0] == 1 else "Low"
+    risks["Confidence"] = f"{int(prob[0][pred[0]] * 100)}%"
+    return risks
+
+# --------------------- Visual Analytics ---------------------
+def show_charts(df):
+    st.subheader("📈 Visual Health Analytics")
+    chart_cols = ["Age", "BMI", "Blood Pressure", "Glucose", "Cholesterol"]
+    for col in chart_cols:
+        if col in df.columns:
+            fig = px.histogram(df, x=col, nbins=10, title=f"{col} Distribution")
+            st.plotly_chart(fig, use_container_width=True)
+
+# --------------------- Chatbot ---------------------
+def chatbot_response(query):
+    query = query.lower()
+    if "bmi" in query:
+        return "BMI is Body Mass Index. A BMI over 25 may indicate overweight."
+    elif "glucose" in query:
+        return "High glucose can be a sign of diabetes. Normal is usually under 140 mg/dL."
+    elif "blood pressure" in query:
+        return "Normal BP is around 120/80. Over 130 may be considered high."
+    elif "cholesterol" in query:
+        return "Total cholesterol should be under 200 mg/dL."
+    elif "diet" in query:
+        return "Eat more vegetables, fruits, and avoid fried or processed food."
+    elif "exercise" in query:
+        return "Aim for at least 30 minutes of moderate exercise daily."
+    else:
+        return "I'm still learning! Please ask specific health-related questions."
+
+# --------------------- Streamlit App ---------------------
+st.set_page_config(page_title="🩺 Mega Health Recommender", layout="wide")
+st.title("🧬 Mega Health Recommendation System")
+st.markdown("Upload your health reports and get personalized, AI-powered suggestions 🚀")
+
+tab1, tab2 = st.tabs(["📤 Upload Report", "🤖 Ask AI HealthBot"])
+
+with tab1:
+    uploaded_file = st.file_uploader("Upload .xlsx, .csv or .pdf", type=["xlsx", "csv", "pdf"])
+    if uploaded_file:
+        if uploaded_file.name.endswith("pdf"):
+            text = extract_text_from_pdf(uploaded_file)
+            st.subheader("📄 Extracted Text from PDF:")
+            st.text(text)
+            recommendations = generate_recommendations(text)
+            risks = {}
+        else:
+            df = load_health_data(uploaded_file)
+            st.subheader("📊 Uploaded Health Data:")
+            st.dataframe(df)
+            recommendations = generate_recommendations(df)
+            risks = predict_risks(df)
+            show_charts(df)
+
+        if risks:
+            st.subheader("🔬 Risk Assessment")
+            for k, v in risks.items():
+                st.write(f"**{k}**: {v}")
+
+        st.subheader("✅ Personalized Recommendations")
+        for r in recommendations:
+            st.markdown(f"- {r}")
+
+with tab2:
+    st.subheader("🤖 Ask your Health-related Question:")
+    user_input = st.text_input("Type your query here...")
+    if user_input:
+        reply = chatbot_response(user_input)
+        st.markdown(f"**🩺 HealthBot:** {reply}")
