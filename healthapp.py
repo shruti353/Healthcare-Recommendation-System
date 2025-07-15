@@ -1,3 +1,4 @@
+
 # mega_health_app.py
 import streamlit as st
 import pandas as pd
@@ -81,32 +82,19 @@ def show_charts(df):
             fig = px.histogram(df, x=col, nbins=10, title=f"{col} Distribution")
             st.plotly_chart(fig, use_container_width=True)
 
+
 # --------------------- Chatbot ---------------------
-import openai
-import os
+from openai import OpenAI
 
-# Load API key from Streamlit secrets
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# GPT Chatbot Function
 def chatbot_response(query):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+        response = client.chat.completions.create(
+            model="gpt-4o",
             messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful healthcare assistant. Answer factually, but don't diagnose or give medical advice."
-                },
-                {
-                    "role": "user",
-                    "content": query
-                }
-            ]
-        )
-        return response['choices'][0]['message']['content']
-    except Exception as e:
-        return f"Error: {e}"
+                {"role": "system", "content": "You are a helpful healthcare assistant. Answer factually, but don't diagnose or give medical advice."},
+
 
 
 # --------------------- Streamlit App ---------------------
@@ -141,7 +129,6 @@ with tab1:
         st.subheader("✅ Personalized Recommendations")
         for r in recommendations:
             st.markdown(f"- {r}")
-
 with tab2:
     st.subheader("🤖 Ask your Health-related Question")
 
