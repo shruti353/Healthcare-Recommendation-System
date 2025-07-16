@@ -38,15 +38,17 @@ def extract_text_from_pdf(file):
     return text
 
 # --------------------- Image to Text (using Gemini Vision) ---------------------
-def extract_text_from_image(image_file):
+def analyze_image_report(image_file):
     """
-    Extracts text from an image file using the Gemini Vision model.
+    Analyzes an image file using the Gemini Vision model to provide a detailed
+    explanation and health suggestions.
 
     Args:
         image_file: A file-like object representing the image.
 
     Returns:
-        str: The extracted text from the image, or an error message.
+        str: A formatted string containing the AI's explanation and suggestions,
+             or an error message.
     """
     try:
         # Read image bytes
@@ -58,10 +60,14 @@ def extract_text_from_image(image_file):
             "data": image_bytes
         }
 
-        # The prompt asks the model to describe the image content, which often includes text
+        # The prompt is enhanced to ask for explanation and suggestions
         prompt_parts = [
             image_part,
-            "Describe the content of this image, focusing on any text or data present that might be relevant to a health report. Extract all readable text."
+            """Analyze this health report image. Provide a clear and concise explanation of its content,
+            highlighting key findings or metrics. Then, offer personalized health suggestions
+            or recommendations based on the information you've extracted.
+            Format your response clearly with headings for 'Explanation' and 'Suggestions'.
+            If no health-related information is found, state that."""
         ]
         
         # Make the API call to Gemini Vision model using generate_content
@@ -71,11 +77,11 @@ def extract_text_from_image(image_file):
         if response.text:
             return response.text
         else:
-            return "No text could be extracted from the image by the AI."
+            return "No detailed analysis or suggestions could be generated from the image by the AI."
 
     except Exception as e:
         st.error(f"Error processing image with AI: {e}")
-        return f"Failed to extract text from image due to an error: {e}"
+        return f"Failed to analyze image due to an error: {e}"
 
 
 # --------------------- Excel/CSV Loader ---------------------
@@ -118,6 +124,10 @@ def generate_recommendations(data):
 
     if isinstance(data, str):
         text = data.lower()
+        # The AI will now generate the full explanation and suggestions directly
+        # So, this function will just return the AI's response as a single item list
+        # if it's coming from image analysis.
+        # For PDF text, we still do simple keyword matching.
         if "fatigue" in text:
             recs.append("Check for iron deficiency.")
         if "headache" in text:
@@ -249,11 +259,14 @@ with tab1:
             risks = {} # No numerical data for risk prediction from PDF text
         elif "image" in file_type: # Check if it's an image file
             st.image(uploaded_file, caption='Uploaded Image Report', use_column_width=True)
-            with st.spinner("Analyzing image and extracting text..."):
-                text = extract_text_from_image(uploaded_file)
-            st.subheader("🖼️ Extracted Text from Image:")
-            st.text(text)
-            recommendations = generate_recommendations(text)
+            with st.spinner("Analyzing image and generating explanation..."):
+                # Call the new analyze_image_report function
+                ai_analysis_output = analyze_image_report(uploaded_file)
+            
+            st.subheader("🔬 AI Report Analysis & Suggestions:")
+            st.markdown(ai_analysis_output) # Display AI's formatted output directly
+            
+            recommendations = [] # Recommendations are now part of AI analysis
             risks = {} # No numerical data for risk prediction from image text
         else: # Assumes Excel or CSV
             df = load_health_data(uploaded_file)
@@ -263,19 +276,21 @@ with tab1:
             risks = predict_risks(df)
             show_charts(df)
 
-        # Display risk assessment if available
+        # Display risk assessment if available (only for Excel/CSV)
         if risks:
             st.subheader("🔬 Risk Assessment")
             for k, v in risks.items():
                 st.write(f"**{k}**: {v}")
 
-        # Display personalized recommendations
-        st.subheader("✅ Personalized Recommendations")
-        if recommendations:
+        # Display personalized recommendations (only for PDF/Excel/CSV)
+        # For image, the AI's analysis already contains recommendations
+        if recommendations: # This block will now primarily serve PDF and Excel/CSV
+            st.subheader("✅ Personalized Recommendations")
             for r in recommendations:
                 st.markdown(f"- {r}")
-        else:
+        elif "image" not in file_type: # If it's not an image and no recommendations, show info
             st.info("No specific recommendations generated based on the provided data.")
+
 
 with tab2:
     st.subheader("🤖 Ask your Health-related Question")
