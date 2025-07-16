@@ -84,22 +84,22 @@ def show_charts(df):
 
 
 # --------------------- Chatbot ---------------------
-from openai import OpenAI
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-def chatbot_response(query):
+import google.generativeai as genai
+import streamlit as st
+
+# Configure the Gemini API
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+model = genai.GenerativeModel('gemini-1.5-flash') # A fast and capable model
+
+def get_health_advice(query):
     try:
-        messages = [
-            {"role": "system", "content": "You are a helpful healthcare assistant. Answer factually, but don't diagnose or give medical advice."},
-            {"role": "user", "content": query}
-        ]
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages
-        )
-        return response.choices[0].message.content
+        # The new API call
+        response = model.generate_content(query)
+        return response.text
     except Exception as e:
-        return f"Error: {str(e)}"
+        # Handle potential API errors
+        return f"Error: The API call failed. Details: {e}"
 
 
 # --------------------- Streamlit App ---------------------
