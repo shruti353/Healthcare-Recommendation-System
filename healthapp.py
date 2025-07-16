@@ -94,13 +94,11 @@ model = genai.GenerativeModel('gemini-pro') # A fast and capable model
 response = model.generate_content(user_input)
 
 def get_health_advice(query):
-    try:
-        # The new API call
-        response = model.generate_content(query)
-        return response.text
-    except Exception as e:
-        # Handle potential API errors
-        return f"Error: The API call failed. Details: {e}"
+   try:
+    response = model.generate_content(user_input)
+    reply = response.text
+except Exception as e:
+    reply = f"Error: {str(e)}"
 
 
 # --------------------- Streamlit App ---------------------
