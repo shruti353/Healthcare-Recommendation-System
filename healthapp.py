@@ -87,14 +87,19 @@ def show_charts(df):
 from openai import OpenAI
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 def chatbot_response(query):
     try:
+        messages = [
+            {"role": "system", "content": "You are a helpful healthcare assistant. Answer factually, but don't diagnose or give medical advice."},
+            {"role": "user", "content": query}
+        ]
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a helpful healthcare assistant. Answer factually, but don't diagnose or give medical advice."},
-
+            messages=messages
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 # --------------------- Streamlit App ---------------------
