@@ -230,21 +230,36 @@ with tab2:
     # Initialize chat history in session state if it doesn't exist
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
+    
+    # Use a key for the text input to allow clearing its value via session state
+    # Initialize the input_key in session state if it's not there
+    if "input_key" not in st.session_state:
+        st.session_state.input_key = ""
 
-    # Text input for user's query
-    user_input = st.text_input("Type your health query here...")
+    # Text input for user's query, linked to session state for clearing
+    user_input = st.text_input("Type your health query here...", key="input_key")
 
     # If user provides input, get chatbot response and update history
     if user_input:
+        # --- START OF REPLACEMENT/ADDITION ---
+        # Clear chat history before appending new question/answer
+        st.session_state.chat_history = [] 
+        # --- END OF REPLACEMENT/ADDITION ---
+
         # Call the chatbot function
         reply = chatbot_response(user_input)
+        
         # Append user's query and AI's reply to chat history
         st.session_state.chat_history.append(("You", user_input))
         st.session_state.chat_history.append(("HealthBot", reply))
-        # Clear the input box after submission (optional, but good for UX)
-        st.session_state.user_input = "" # This will clear the text_input widget
+        
+        # --- START OF REPLACEMENT/ADDITION ---
+        # Clear the input box after submission
+        st.session_state.input_key = ""
+        # Rerun to clear the input box and display the new chat history
+        st.experimental_rerun() 
+        # --- END OF REPLACEMENT/ADDITION ---
 
     # Display chat history
     for speaker, msg in st.session_state.chat_history:
         st.markdown(f"**{speaker}:** {msg}")
-
