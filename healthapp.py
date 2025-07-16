@@ -6,14 +6,15 @@ from io import BytesIO
 from sklearn.ensemble import RandomForestClassifier
 import plotly.express as px
 import google.generativeai as genai
+import base64 # Import base64 for image encoding
 
 # Configure the Gemini API
-# The API key is loaded from Streamlit secrets, which is a secure way to handle it.
-# For local testing, ensure you have a .streamlit/secrets.toml file with GOOGLE_API_KEY = "YOUR_API_KEY"
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
 # Initialize the Generative Model. Using 'gemini-2.0-flash' for text generation.
 model = genai.GenerativeModel('gemini-2.0-flash')
+# Initialize the Gemini Vision Model for image understanding
+vision_model = genai.GenerativeModel('gemini-2.0-flash') # Gemini 2.0 Flash supports vision
 
 # --------------------- PDF to Text ---------------------
 def extract_text_from_pdf(file):
@@ -28,15 +29,80 @@ def extract_text_from_pdf(file):
     """
     text = ""
     try:
-        # Open the PDF file using fitz (PyMuPDF)
         with fitz.open(stream=file.read(), filetype="pdf") as doc:
-            # Iterate through each page and extract text
             for page in doc:
                 text += page.get_text()
     except Exception as e:
         st.error(f"Error extracting text from PDF: {e}")
         text = "Could not extract text from PDF."
     return text
+
+# --------------------- Image to Text (using Gemini Vision) ---------------------
+def extract_text_from_image(image_file):
+    """
+    Extracts text from an image file using the Gemini Vision model.
+
+    Args:
+        image_file: A file-like object representing the image.
+
+    Returns:
+        str: The extracted text from the image, or an error message.
+    """
+    try:
+        # Read image bytes
+        image_bytes = image_file.read()
+        # Encode image to base64
+        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+        # Prepare content for Gemini Vision model
+        # The prompt asks the model to describe the image content, which often includes text
+        prompt = "Describe the content of this image, focusing on any text or data present that might be relevant to a health report."
+        
+        # Prepare the payload for the Gemini API call
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": prompt},
+                        {
+                            "inlineData": {
+                                "mimeType": image_file.type, # Use the detected mime type
+                                "data": base64_image
+                            }
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "maxOutputTokens": 800 # Limit output length for text extraction
+            }
+        }
+        
+        # Make the API call to Gemini Vision model
+        # The API key will be automatically provided by the Canvas environment
+        api_key = "" 
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        
+        response = genai.requests.post(
+            api_url,
+            headers={'Content-Type': 'application/json'},
+            json=payload
+        )
+        response.raise_for_status() # Raise an exception for HTTP errors
+        
+        result = response.json()
+        
+        if result and result.get('candidates') and result['candidates'][0].get('content') and result['candidates'][0]['content'].get('parts'):
+            extracted_text = result['candidates'][0]['content']['parts'][0]['text']
+            return extracted_text
+        else:
+            return "No text could be extracted from the image by the AI."
+
+    except Exception as e:
+        st.error(f"Error processing image with AI: {e}")
+        return f"Failed to extract text from image due to an error: {e}"
+
 
 # --------------------- Excel/CSV Loader ---------------------
 def load_health_data(file):
@@ -194,14 +260,27 @@ st.markdown("Upload your health reports and get personalized, AI-powered suggest
 tab1, tab2 = st.tabs(["📤 Upload Report", "🤖 Ask AI HealthBot"])
 
 with tab1:
-    uploaded_file = st.file_uploader("Upload .xlsx, .csv or .pdf", type=["xlsx", "csv", "pdf"])
+    uploaded_file = st.file_uploader(
+        "Upload .xlsx, .csv, .pdf, .png, .jpg, or .jpeg",
+        type=["xlsx", "csv", "pdf", "png", "jpg", "jpeg"]
+    )
     if uploaded_file:
-        if uploaded_file.name.endswith("pdf"):
+        file_type = uploaded_file.type
+        
+        if "pdf" in file_type:
             text = extract_text_from_pdf(uploaded_file)
             st.subheader("📄 Extracted Text from PDF:")
             st.text(text)
             recommendations = generate_recommendations(text)
             risks = {} # No numerical data for risk prediction from PDF text
+        elif "image" in file_type: # Check if it's an image file
+            st.image(uploaded_file, caption='Uploaded Image Report', use_column_width=True)
+            with st.spinner("Analyzing image and extracting text..."):
+                text = extract_text_from_image(uploaded_file)
+            st.subheader("🖼️ Extracted Text from Image:")
+            st.text(text)
+            recommendations = generate_recommendations(text)
+            risks = {} # No numerical data for risk prediction from image text
         else: # Assumes Excel or CSV
             df = load_health_data(uploaded_file)
             st.subheader("📊 Uploaded Health Data:")
