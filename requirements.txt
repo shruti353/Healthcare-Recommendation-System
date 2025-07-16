@@ -1,9 +1,8 @@
-
 streamlit
 pandas
 numpy
 pymupdf
 plotly
 scikit-learn
-openai  
->>>>>>> f3b280b2e16c9fc05ef4eaa931051854acf1ee6d
+openai
+pdfplumber
