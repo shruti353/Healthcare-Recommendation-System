@@ -6,7 +6,6 @@ import fitz  # pymupdf
 from io import BytesIO
 from sklearn.ensemble import RandomForestClassifier
 import plotly.express as px
-import google.generativeai as genai
 
 # --------------------- PDF to Text ---------------------
 def extract_text_from_pdf(file):
@@ -82,25 +81,29 @@ def show_charts(df):
             fig = px.histogram(df, x=col, nbins=10, title=f"{col} Distribution")
             st.plotly_chart(fig, use_container_width=True)
 
+
 # --------------------- Chatbot ---------------------
-def chatbot_response(user_input):
-    try:
-        response = model.generate_content(user_input)
-        return response.text
-    except Exception as e:
-        return f"Error: {str(e)}"
+
+import google.generativeai as genai
+import streamlit as st
+
+# Configure the Gemini API
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+model = genai.GenerativeModel('gemini-pro') # A fast and capable model
+response = model.generate_content(user_input)
+
+def get_health_advice(query):
+   try:
+    response = model.generate_content(user_input)
+    reply = response.text
+except Exception as e:
+    reply = f"Error: {str(e)}"
+
 
 # --------------------- Streamlit App ---------------------
 st.set_page_config(page_title="🩺 Mega Health Recommender", layout="wide")
 st.title("🧬 Mega Health Recommendation System")
 st.markdown("Upload your health reports and get personalized, AI-powered suggestions 🚀")
-
-# Configure Gemini - moved here to ensure it runs first
-try:
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-    model = genai.GenerativeModel('gemini-pro')
-except Exception as e:
-    st.error(f"Failed to configure Gemini: {str(e)}")
 
 tab1, tab2 = st.tabs(["📤 Upload Report", "🤖 Ask AI HealthBot"])
 
@@ -129,20 +132,18 @@ with tab1:
         st.subheader("✅ Personalized Recommendations")
         for r in recommendations:
             st.markdown(f"- {r}")
-
 with tab2:
     st.subheader("🤖 Ask your Health-related Question")
 
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
-    user_input = st.text_input("Type your health query here...", key="health_query")
+    user_input = st.text_input("Type your health query here...")
 
-    if st.button("Ask") or user_input:
-        if user_input:
-            reply = chatbot_response(user_input)
-            st.session_state.chat_history.append(("You", user_input))
-            st.session_state.chat_history.append(("HealthBot", reply))
+    if user_input:
+        reply = chatbot_response(user_input)
+        st.session_state.chat_history.append(("You", user_input))
+        st.session_state.chat_history.append(("HealthBot", reply))
 
     for speaker, msg in st.session_state.chat_history:
         st.markdown(f"**{speaker}:** {msg}")
