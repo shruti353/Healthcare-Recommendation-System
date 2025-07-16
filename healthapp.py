@@ -90,7 +90,8 @@ import streamlit as st
 
 # Configure the Gemini API
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-model = genai.GenerativeModel('gemini-1.5-flash') # A fast and capable model
+model = genai.GenerativeModel('gemini-pro') # A fast and capable model
+response = model.generate_content(user_input)
 
 def get_health_advice(query):
     try:
