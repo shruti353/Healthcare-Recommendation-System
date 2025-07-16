@@ -231,34 +231,28 @@ with tab2:
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
     
-    # Use a key for the text input to allow clearing its value via session state
-    # Initialize the input_key in session state if it's not there
-    if "input_key" not in st.session_state:
-        st.session_state.input_key = ""
+    # Use a form for input and submission. clear_on_submit=True clears the text input.
+    with st.form("chat_form", clear_on_submit=True):
+        # Text input for user's query, now inside the form
+        user_input = st.text_input("Type your health query here...", key="chat_input")
+        # Submit button for the form
+        submitted = st.form_submit_button("Send")
 
-    # Text input for user's query, linked to session state for clearing
-    user_input = st.text_input("Type your health query here...", key="input_key")
+        # If the form is submitted and there's user input
+        if submitted and user_input:
+            # Clear chat history before appending new question/answer
+            st.session_state.chat_history = [] 
 
-    # If user provides input, get chatbot response and update history
-    if user_input:
-        # --- START OF REPLACEMENT/ADDITION ---
-        # Clear chat history before appending new question/answer
-        st.session_state.chat_history = [] 
-        # --- END OF REPLACEMENT/ADDITION ---
-
-        # Call the chatbot function
-        reply = chatbot_response(user_input)
-        
-        # Append user's query and AI's reply to chat history
-        st.session_state.chat_history.append(("You", user_input))
-        st.session_state.chat_history.append(("HealthBot", reply))
-        
-        # --- START OF REPLACEMENT/ADDITION ---
-        # Clear the input box after submission
-        st.session_state.input_key = ""
-        # Rerun to clear the input box and display the new chat history
-        st.experimental_rerun() 
-        # --- END OF REPLACEMENT/ADDITION ---
+            # Call the chatbot function
+            reply = chatbot_response(user_input)
+            
+            # Append user's query and AI's reply to chat history
+            st.session_state.chat_history.append(("You", user_input))
+            st.session_state.chat_history.append(("HealthBot", reply))
+            
+            # No need for st.session_state.input_key = "" or st.experimental_rerun() here
+            # because clear_on_submit=True handles clearing the input,
+            # and Streamlit will rerun naturally to display updated chat_history.
 
     # Display chat history
     for speaker, msg in st.session_state.chat_history:
