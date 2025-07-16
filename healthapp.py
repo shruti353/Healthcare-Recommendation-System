@@ -51,51 +51,25 @@ def extract_text_from_image(image_file):
     try:
         # Read image bytes
         image_bytes = image_file.read()
-        # Encode image to base64
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
-
-        # Prepare content for Gemini Vision model
-        # The prompt asks the model to describe the image content, which often includes text
-        prompt = "Describe the content of this image, focusing on any text or data present that might be relevant to a health report."
         
-        # Prepare the payload for the Gemini API call
-        payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"text": prompt},
-                        {
-                            "inlineData": {
-                                "mimeType": image_file.type, # Use the detected mime type
-                                "data": base64_image
-                            }
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "maxOutputTokens": 800 # Limit output length for text extraction
-            }
+        # Create a Generative Part for the image
+        image_part = {
+            "mime_type": image_file.type,
+            "data": image_bytes
         }
+
+        # The prompt asks the model to describe the image content, which often includes text
+        prompt_parts = [
+            image_part,
+            "Describe the content of this image, focusing on any text or data present that might be relevant to a health report. Extract all readable text."
+        ]
         
-        # Make the API call to Gemini Vision model
-        # The API key will be automatically provided by the Canvas environment
-        api_key = "" 
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        # Make the API call to Gemini Vision model using generate_content
+        response = vision_model.generate_content(prompt_parts)
         
-        response = genai.requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            json=payload
-        )
-        response.raise_for_status() # Raise an exception for HTTP errors
-        
-        result = response.json()
-        
-        if result and result.get('candidates') and result['candidates'][0].get('content') and result['candidates'][0]['content'].get('parts'):
-            extracted_text = result['candidates'][0]['content']['parts'][0]['text']
-            return extracted_text
+        # Check if the response contains text and return it
+        if response.text:
+            return response.text
         else:
             return "No text could be extracted from the image by the AI."
 
